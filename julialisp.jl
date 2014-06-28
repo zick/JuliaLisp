@@ -29,6 +29,7 @@ sym_t = makeSym("t")
 sym_quote = makeSym("quote")
 sym_if = makeSym("if")
 sym_lambda = makeSym("lambda")
+sym_defun = makeSym("defun")
 
 type Error
   data
@@ -231,6 +232,11 @@ function eval1(obj, env)
     end
   elseif op == sym_lambda
     return makeExpr(args, env)
+  elseif op == sym_defun
+    expr = makeExpr(safeCdr(args), env)
+    sym = safeCar(args)
+    addToEnv(sym, expr, g_env)
+    return sym
   end
   apply(eval1(op, env), evlis(args, env), env)
 end
