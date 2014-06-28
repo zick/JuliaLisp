@@ -27,6 +27,7 @@ end
 
 sym_t = makeSym("t")
 sym_quote = makeSym("quote")
+sym_if = makeSym("if")
 
 type Error
   data
@@ -203,9 +204,57 @@ function eval1(obj, env)
     end
     return bind.cdr
   end
-  Error("noimpl")
+
+  op = safeCar(obj)
+  args = safeCdr(obj)
+  if op == sym_quote
+    return safeCar(args)
+  elseif op == sym_if
+    c = eval1(safeCar(args), env)
+    if isa(c, Error)
+      return c
+    elseif c == kNil
+      return eval1(safeCar(safeCdr(safeCdr(args))), env)
+    else
+      return eval1(safeCar(safeCdr(args)), env)
+    end
+  end
+  apply(eval1(op, env), evlis(args, env), env)
 end
 
+function evlis(lst, env)
+  ret = kNil
+  while isa(lst, Cons)
+    elm = eval1(lst.car, env)
+    if isa(elm, Error)
+      return elm
+    end
+    ret = Cons(elm, ret)
+    lst = lst.cdr
+  end
+  nreverse(ret)
+end
+
+function apply(fn, args, env)
+  if isa(fn, Error)
+    return fn
+  elseif isa(args, Error)
+    return args
+  elseif isa(fn, Subr)
+    return fn.fn(args)
+  end
+  Error(string(printObj(fn), " is not function"))
+end
+
+subrCar(args) = safeCar(safeCar(args))
+
+subrCdr(args) = safeCdr(safeCar(args))
+
+subrCons(args) = Cons(safeCar(args), safeCar(safeCdr(args)))
+
+addToEnv(makeSym("car"), Subr(subrCar), g_env)
+addToEnv(makeSym("cdr"), Subr(subrCdr), g_env)
+addToEnv(makeSym("cons"), Subr(subrCons), g_env)
 addToEnv(sym_t, sym_t, g_env)
 
 while true
