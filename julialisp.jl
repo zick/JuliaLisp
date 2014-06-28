@@ -25,6 +25,7 @@ function makeSym(str)
   get(sym_table, str, kNil)
 end
 
+sym_t = makeSym("t")
 sym_quote = makeSym("quote")
 
 type Error
@@ -174,9 +175,42 @@ function printList(obj)
   string("(", ret, " . ", printObj(obj), ")")
 end
 
+function findVar(sym, env)
+  while isa(env, Cons)
+    alist = env.car
+    while isa(alist, Cons)
+      if alist.car.car == sym
+        return alist.car
+      end
+      alist = alist.cdr
+    end
+    env = env.cdr
+  end
+  kNil
+end
+
+g_env = Cons(kNil, kNil)
+
+addToEnv(sym, val, env) = env.car = Cons(Cons(sym, val), env.car)
+
+function eval1(obj, env)
+  if isa(obj, Nil) || isa(obj, Num) || isa(obj, Error)
+    return obj
+  elseif isa(obj, Sym)
+    bind = findVar(obj, env)
+    if bind == kNil
+      return Error(string(obj.data, " has no value"))
+    end
+    return bind.cdr
+  end
+  Error("noimpl")
+end
+
+addToEnv(sym_t, sym_t, g_env)
+
 while true
   print("> ")
   line = readline(STDIN)
   if line == "" break end
-  println(printObj(read1(line)[1]))
+  println(printObj(eval1(read1(line)[1], g_env)))
 end
