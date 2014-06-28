@@ -28,6 +28,7 @@ end
 sym_t = makeSym("t")
 sym_quote = makeSym("quote")
 sym_if = makeSym("if")
+sym_lambda = makeSym("lambda")
 
 type Error
   data
@@ -75,6 +76,16 @@ function nreverse(lst)
     lst = tmp
   end
   ret
+end
+
+function pairlis(lst1, lst2)
+  ret = kNil
+  while isa(lst1, Cons) && isa(lst2, Cons)
+    ret = Cons(Cons(lst1.car, lst2.car), ret)
+    lst1 = lst1.cdr
+    lst2 = lst2.cdr
+  end
+  nreverse(ret)
 end
 
 isDelimiter(c) = c == kLPar || c == kRPar || c == kQuote || isspace(c)
@@ -218,6 +229,8 @@ function eval1(obj, env)
     else
       return eval1(safeCar(safeCdr(args)), env)
     end
+  elseif op == sym_lambda
+    return makeExpr(args, env)
   end
   apply(eval1(op, env), evlis(args, env), env)
 end
@@ -235,6 +248,15 @@ function evlis(lst, env)
   nreverse(ret)
 end
 
+function progn(body, env)
+  ret = kNil
+  while isa(body, Cons)
+    ret = eval1(body.car, env)
+    body = body.cdr
+  end
+  ret
+end
+
 function apply(fn, args, env)
   if isa(fn, Error)
     return fn
@@ -242,6 +264,8 @@ function apply(fn, args, env)
     return args
   elseif isa(fn, Subr)
     return fn.fn(args)
+  elseif isa(fn, Expr)
+    return progn(fn.body, Cons(pairlis(fn.args, args), fn.env))
   end
   Error(string(printObj(fn), " is not function"))
 end
