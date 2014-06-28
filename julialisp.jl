@@ -25,6 +25,8 @@ function makeSym(str)
   get(sym_table, str, kNil)
 end
 
+sym_quote = makeSym("quote")
+
 type Error
   data
 end
@@ -45,7 +47,7 @@ type Expr
 end
 
 function safeCar(obj)
-  if (isa(obj, Cons))
+  if isa(obj, Cons)
     obj.car
   else
     kNil
@@ -53,7 +55,7 @@ function safeCar(obj)
 end
 
 function safeCdr(obj)
-  if (isa(obj, Cons))
+  if isa(obj, Cons)
     obj.cdr
   else
     kNil
@@ -61,6 +63,17 @@ function safeCdr(obj)
 end
 
 makeExpr(args, env) = Expr(safeCar(args), safeCdr(args), env)
+
+function nreverse(lst)
+  ret = kNil
+  while isa(lst, Cons)
+    tmp = lst.cdr
+    lst.cdr = ret
+    ret = lst
+    lst = tmp
+  end
+  ret
+end
 
 isDelimiter(c) = c == kLPar || c == kRPar || c == kQuote || isspace(c)
 
@@ -95,17 +108,75 @@ function read1(str)
   elseif str[1] == kRPar
     return parseError(string("invalid syntax: ", str))
   elseif str[1] == kLPar
-    return parseError("noimpl")
+    return readList(str[2:])
   elseif str[1] == kQuote
-    return parseError("noimpl")
+    elm, next = read1(str[2:])
+    return Cons(sym_quote, Cons(elm, kNil)), next
   else
     return readAtom(str)
   end
+end
+
+function readList(str)
+  ret = kNil
+  while true
+    str = skipSpaces(str)
+    if str == ""
+      return parseError("unfinished parenthesis")
+    elseif str[1] == kRPar
+      break
+    end
+    elm, next = read1(str)
+    if isa(elm, Error)
+      return elm, next
+    end
+    ret = Cons(elm, ret)
+    str = next
+  end
+  nreverse(ret), str[2:]
+end
+
+function printObj(obj)
+  if isa(obj, Nil)
+    return "nil"
+  elseif isa(obj, Num)
+    return string(obj.data)
+  elseif isa(obj, Sym)
+    return obj.data
+  elseif isa(obj, Error)
+    return string("<error: ", obj.data, ">")
+  elseif isa(obj, Cons)
+    return printList(obj)
+  elseif isa(obj, Subr)
+    return "<subr>"
+  elseif isa(obj, Expr)
+    return "<expr>"
+  else
+    return "<unknown>"
+  end
+end
+
+function printList(obj)
+  ret = ""
+  first = true
+  while isa(obj, Cons)
+    if first
+      first = false
+    else
+      ret = string(ret, " ")
+    end
+    ret = string(ret, printObj(obj.car))
+    obj = obj.cdr
+  end
+  if obj == kNil
+    return string("(", ret, ")")
+  end
+  string("(", ret, " . ", printObj(obj), ")")
 end
 
 while true
   print("> ")
   line = readline(STDIN)
   if line == "" break end
-  println(read1(line))
+  println(printObj(read1(line)[1]))
 end
