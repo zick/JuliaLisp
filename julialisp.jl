@@ -293,9 +293,71 @@ subrCdr(args) = safeCdr(safeCar(args))
 
 subrCons(args) = Cons(safeCar(args), safeCar(safeCdr(args)))
 
+function subrEq(args)
+  x = safeCar(args)
+  y = safeCar(safeCdr(args))
+  if isa(x, Num) && isa(y, Num)
+    if x.data == y.data
+      return sym_t
+    else
+      return kNil
+    end
+  elseif x == y
+    return sym_t
+  end
+  kNil
+end
+
+subrAtom(args) = isa(safeCar(args), Cons) ? kNil : sym_t
+
+subrNumberp(args) = isa(safeCar(args), Num) ? sym_t : kNil
+
+subrSymbolp(args) = isa(safeCar(args), Sym) ? sym_t : kNil
+
+function subrAddOrMul(fn, init_val)
+  function doit(args)
+    ret = init_val
+    while isa(args, Cons)
+      if !isa(args.car, Num)
+        return Error("wrong type")
+      end
+      ret = fn(ret, args.car.data)
+      args = args.cdr
+    end
+    Num(ret)
+  end
+  return doit
+end
+subrAdd = subrAddOrMul((x, y) -> x + y, 0)
+subrMul = subrAddOrMul((x, y) -> x * y, 1)
+
+function subrSubOrDivOrMod(fn)
+  function doit(args)
+    x = safeCar(args)
+    y = safeCar(safeCdr(args))
+    if !isa(x, Num) || !isa(y, Num)
+      return Error("wrong type")
+    end
+    Num(fn(x.data, y.data))
+  end
+  return doit
+end
+subrSub = subrSubOrDivOrMod((x, y) -> x - y)
+subrDiv = subrSubOrDivOrMod((x, y) -> x / y)
+subrMod = subrSubOrDivOrMod((x, y) -> x % y)
+
 addToEnv(makeSym("car"), Subr(subrCar), g_env)
 addToEnv(makeSym("cdr"), Subr(subrCdr), g_env)
 addToEnv(makeSym("cons"), Subr(subrCons), g_env)
+addToEnv(makeSym("eq"), Subr(subrEq), g_env)
+addToEnv(makeSym("atom"), Subr(subrAtom), g_env)
+addToEnv(makeSym("numberp"), Subr(subrNumberp), g_env)
+addToEnv(makeSym("symbolp"), Subr(subrSymbolp), g_env)
+addToEnv(makeSym("+"), Subr(subrAdd), g_env)
+addToEnv(makeSym("*"), Subr(subrMul), g_env)
+addToEnv(makeSym("-"), Subr(subrSub), g_env)
+addToEnv(makeSym("/"), Subr(subrDiv), g_env)
+addToEnv(makeSym("mod"), Subr(subrMod), g_env)
 addToEnv(sym_t, sym_t, g_env)
 
 while true
